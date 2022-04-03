@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en"> 
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width">
+        <title>Products</title>
+        <style>
+            table,th,td{
+                border:1px solid black
+            }
+        </style>
+    </head>
+    <body> 
+        <p>
+        Select your ID from the list of Customers below
+        </p>
+       <p> Then scroll down to submit your detail at foot of this page</p>
+        <form action="/orders" method="post">
+        <table >
+            <tr>
+                
+                <td>Name</td>
+                <td>Address</td>
+                <td>Zip</td>
+                <td>City</td>
+                <td>ID</td>
+            </tr>
+            {% for customer in customer_list %}
+            <tr>
+                <td>{{ customer.name }}</td>
+                <td>{{ customer.address }}</td>
+                <td>{{customer.zip}}</td>
+                <td>{{customer.city}}</td>
+                <td>  {% if customer.default %}
+                    <input type="radio" name="customer_id" value="{{customer.id}}" checked="checked">{{ customer.id }}<br/>
+                    {% else %}
+                    <input type="radio" name="customer_id" value="{{customer.id}}">{{ customer.id }}<br/>
+                    {% endif %}</td>
+            </tr>
+            {% endfor %}
+        </table>
+            <input type="submit" name="orders" value="Submit your details" />
+        </form>
+    </body> 
+</html> 

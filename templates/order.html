@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en"> 
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width">
+        <title>Order</title>
+        <style>
+            table,th,td{
+                border:1px solid black
+            }
+        </style>
+    </head>
+    <body> 
+        <p>
+        List of products in an order
+        </p>
+        <p>
+        Order: {{ order_id }}
+        </p>
+
+        <form action="/return.html" method="GET">
+            <input type="hidden" name="order_id" value="{{ order_id }}">
+            <table >
+                <tr>
+                    <td>Product ID</td>
+                    <td>Name</td>
+                    <td>Size</td>
+                    <td>Return</td>
+                </tr>
+                {% for product in product_list %}
+                <tr>
+                    <td>{{ product.id }}</td>
+                    <td>{{ product.name }}</td>
+                    <td>{{ product.size }}</td>
+                    <td><input type="checkbox" name="{{ product.id }}"/></td>
+                </tr>
+                {% endfor %}
+            </table>
+            <input type="submit" value="Return">
+        </form>
+    </body> 
+</html> 
