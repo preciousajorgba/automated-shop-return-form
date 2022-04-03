@@ -1,0 +1,5 @@
+python3
+flask
+sqlite3
+python-barcode
+fpdf
