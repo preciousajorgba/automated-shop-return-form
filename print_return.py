@@ -6,7 +6,7 @@ import barcode
 from barcode.writer import ImageWriter
 
 def generate_label(return_id):
-    db = sqlite3.connect('ndb')
+    db = sqlite3.connect('finaldb')
     cursor = db.cursor()
     cursor.execute('''SELECT customers.name,
             customers.address,

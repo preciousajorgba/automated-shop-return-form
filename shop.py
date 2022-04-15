@@ -3,9 +3,130 @@ app = Flask(__name__)
 
 import sqlite3
 import print_return 
+import random
 
-db = sqlite3.connect('ndb')
+
+db = sqlite3.connect('finaldb')
 cursor = db.cursor()
+for table in ['customers', 'products', 'orders',
+        'products_ordered', 'returns', 'products_returned',
+        'return_reasons']:
+    cursor.execute('DROP TABLE if exists %s' % table)
+    db.commit()
+
+cursor.execute('''
+        CREATE TABLE customers(id INTEGER PRIMARY KEY,
+                               name TEXT,
+                               address TEXT,
+                               zipcode TEXT,
+                               city TEXT)''')
+cursor.execute('''
+        CREATE TABLE products(id INTEGER PRIMARY KEY,
+                               name TEXT,
+                               size TEXT)''')
+cursor.execute('''
+        CREATE TABLE orders(id INTEGER PRIMARY KEY,
+                               date DATE,
+                               customer_id INTEGER,
+                               FOREIGN KEY(customer_id) REFERENCES customers(id))''')
+cursor.execute('''
+        CREATE TABLE products_ordered(id INTEGER PRIMARY KEY,
+                               order_id INTEGER,
+                               product_id INTEGER,
+                               FOREIGN KEY(order_id) REFERENCES orders(id),
+                               FOREIGN KEY(product_id) REFERENCES products(id))''')
+cursor.execute('''
+        CREATE TABLE returns(id INTEGER PRIMARY KEY,
+                               order_id INTEGER UNIQUE,
+                               FOREIGN KEY(order_id) REFERENCES orders(id))''')
+cursor.execute('''
+        CREATE TABLE return_reasons(id INTEGER PRIMARY KEY,
+                               description TEXT)''')
+for description in ['Too large', 'Too small', 'Not as expected', 'Other']:
+    cursor.execute('INSERT INTO return_reasons(description) VALUES(?)',
+            (description, ))
+cursor.execute('''
+        CREATE TABLE products_returned(id INTEGER PRIMARY KEY,
+                               return_id INTEGER,
+                               return_reason_id INTEGER,
+                               product_order_id INTEGER,
+                               FOREIGN KEY(product_order_id) REFERENCES products_ordered(id),
+                               FOREIGN KEY(return_id) REFERENCES returns(id),
+                               FOREIGN KEY(return_reason_id) REFERENCES return_reasons(id))''')
+db.commit()
+
+for i in range(100):
+    color = random.choice(['Red', 'Green', 'Blue', 'Yellow', 'Black', 'White', 'Orange'])
+    gender = random.choice(["Men's", "Women's"])
+    clothing = random.choice(['Jeans', 'Shirt', 'T-Shirt', 'Cardigan', 'Skirt', 'Dress', 'Belt'])
+    name = '%s %s %s' % (color, gender, clothing)
+    sizes = random.choice([['S', 'M', 'L', 'XL'], ['36', '38', '40', '42']])
+    for size in sizes:
+        cursor.execute('INSERT INTO products(name, size) VALUES(?, ?)',
+                (name, size))
+
+cursor.execute('SELECT id FROM products')
+all_product_ids = cursor.fetchall()
+all_product_ids = [x for (x,) in all_product_ids]
+
+cursor.execute('SELECT count(*) from return_reasons')
+num_return_reasons = cursor.fetchone()[0]
+assert num_return_reasons > 0
+
+for i in range(10):
+    first_name = random.choice(['Bright', 'Jane', 'Ade', 'Nnenna', 'Kant', 'Precious', 'Leah'])
+    surname = random.choice(['Ajorgba', 'Obi', 'Balogun', 'Ahmed', 'Bedi'])
+    name = '%s %s' % (first_name, surname)
+    housenr = random.randint(1, 8000)
+    street_name = random.choice(['Biobaku', 'Elkanemi',
+        'Mariere', 'Shodeinde', 'Jaja', 'Amina', 'Nsukara',
+        'Sofoluwe', '34', 'Alabado'])
+    road = random.choice(['Road', 'Street', 'Avenue', 'Lane', 'Parkway'])
+    zipcode = random.randint(10000, 99999)
+    city = random.choice(['Yaba', 'Alimosho', 'Akoka'])
+    address = '%s %s %s' % (housenr, street_name, road)
+
+    cursor.execute('INSERT INTO customers(name, address, zipcode, city) VALUES(?, ?, ?, ?)',
+            (name, address, zipcode, city))
+    customer_id = cursor.lastrowid
+
+    # each customer has between 2 and 50 orders
+    for i in range(random.randint(2, 50)):
+        year = random.choice([2015, 2016, 2017, 2018])
+        month = random.randint(1, 12)
+        day = random.randint(1, 28)
+        date = "%04d-%02d-%02d" % (year, month, day)
+        cursor.execute('INSERT INTO orders(date, customer_id) VALUES(?, ?)',
+                (date, customer_id))
+        order_id = cursor.lastrowid
+        product_order_ids = list()
+        num_products_ordered = random.randint(2, 7)
+
+        # each order has between 2 and 7 products
+        for j in range(num_products_ordered):
+            product_id = random.choice(all_product_ids)
+            cursor.execute('INSERT INTO products_ordered(order_id, product_id) VALUES(?, ?)',
+                    (order_id, product_id))
+            product_order_ids.append(cursor.lastrowid)
+        random.shuffle(product_order_ids)
+
+        # each order may have some returns
+        return_id = None
+        for j in range(random.randint(0, num_products_ordered)):
+            if not return_id:
+                cursor.execute('INSERT INTO returns(order_id) VALUES (?)',
+                        (order_id, ))
+                return_id = cursor.lastrowid
+            product_order_id = product_order_ids.pop()
+            return_reason_id = random.randint(1, num_return_reasons)
+            cursor.execute('''INSERT INTO products_returned(
+                        return_id, return_reason_id, product_order_id) VALUES (?, ?, ?)''',
+                        (return_id, return_reason_id, product_order_id))
+
+db.commit()
+
+
+
 
 def make_customer(p):
     return {'id':p[0],'name': p[1], 'address': p[2], 'zip':p[3], 'city':p[4]}
@@ -23,7 +144,7 @@ def make_reason(p):
     return {'id': p[0], 'description': p[1]}
 
 def get_order_products(order_id):
-    db = sqlite3.connect('ndb')
+    db = sqlite3.connect('finaldb')
     cursor = db.cursor()
 
     cursor.execute('''SELECT     products.id, products.name, products.size, products_ordered.id
@@ -34,9 +155,9 @@ def get_order_products(order_id):
     product_list = cursor.fetchall()
     return [make_product(o) for o in product_list]
 
-@app.route("/",methods=['GET'])
+@app.route("/",methods=['GET','POST'])
 def customers():
-    db = sqlite3.connect('ndb')
+    db = sqlite3.connect('finaldb')
     cursor = db.cursor()
 
     cursor.execute('''SELECT   * FROM customers''')
@@ -46,7 +167,7 @@ def customers():
 
 @app.route("/products/", methods=['GET'])
 def products():
-    db = sqlite3.connect('ndb')
+    db = sqlite3.connect('finaldb')
     cursor = db.cursor()
 
     cursor.execute('''SELECT   * FROM products''')
@@ -54,9 +175,9 @@ def products():
     product_list = [make_product(p) for p in product_list]
     return render_template('products.html', product_list=product_list)
 
-@app.route("/orders/", methods=['POST'])
+@app.route("/orders.html", methods=['POST'])
 def orders():
-    db = sqlite3.connect('ndb')
+    db = sqlite3.connect('finaldb')
     cursor = db.cursor()
     the_id=request.form['customer_id']
     customer_id = request.args.get('customer_id', the_id)
@@ -70,7 +191,7 @@ def orders():
 
 @app.route("/order/", methods=['GET'])
 def order():
-    db = sqlite3.connect('ndb')
+    db = sqlite3.connect('finaldb')
     cursor = db.cursor()
 
     order_id = request.args.get('order_id', 1)
@@ -79,7 +200,7 @@ def order():
 
 @app.route("/return.html", methods=['GET'])
 def return_get_reason():
-    db = sqlite3.connect('ndb')
+    db = sqlite3.connect('finaldb')
     cursor = db.cursor()
 
     order_id = request.args.get('order_id')
@@ -94,7 +215,7 @@ def return_get_reason():
 @app.route("/print.html", methods=['POST'])
 def return_print():
     # build database input
-    db = sqlite3.connect('ndb')
+    db = sqlite3.connect('finaldb')
     cursor = db.cursor()
 
     order_id = request.form['order_id']
@@ -126,3 +247,5 @@ def return_print():
     response.headers['Content-Type'] = 'application/pdf'
     response.headers['Content-Disposition'] = 'inline; filename=return.pdf'
     return response
+
+db.close()
